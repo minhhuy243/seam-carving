@@ -1,2 +1,2 @@
 # seam-carving
-Seam Carving Algorithm
+Implementation of Seam Carving Algorithm with 2 versions: host and cuda
