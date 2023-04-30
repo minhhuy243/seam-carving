@@ -194,3 +194,25 @@ int computePixelPriority(uint8_t * grayPixels, int row, int col, int width, int 
     }
     return abs(x) + abs(y);
 }
+
+void computeSeamScoreTable(int *priority, int *score, int width, int height, int originalWidth) {
+    for (int c = 0; c < width; ++c) {
+        score[c] = priority[c];
+    }
+    for (int r = 1; r < height; ++r) {
+        for (int c = 0; c < width; ++c) {
+            int idx = r * originalWidth + c;
+            int aboveIdx = (r - 1) * originalWidth + c;
+
+            int min = score[aboveIdx];
+            if (c > 0 && score[aboveIdx - 1] < min) {
+                min = score[aboveIdx - 1];
+            }
+            if (c < width - 1 && score[aboveIdx + 1] < min) {
+                min = score[aboveIdx + 1];
+            }
+
+            score[idx] = min + priority[idx];
+        }
+    }
+}
