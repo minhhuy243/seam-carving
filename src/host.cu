@@ -117,3 +117,51 @@ void writePnm(uchar3 *pixels, int width, int height, int originalWidth, char *fi
 int xSobel[3][3] = {{1,0,-1},{2,0,-2},{1,0,-1}};
 int ySobel[3][3] = {{1,2,1},{0,0,0},{-1,-2,-1}};
 
+void convertRgb2Gray(uchar3 * inPixels, int width, int height, uint8_t * outPixels) {
+    for (int r = 0; r < height; ++r) {
+        for (int c = 0; c < width; ++c) {
+            int i = r * width + c;
+            outPixels[i] = 0.299f * inPixels[i].x + 0.587f * inPixels[i].y + 0.114f * inPixels[i].z;
+        }
+    }
+}
+
+float computeError(uchar3 * a1, uchar3 * a2, int n)
+{
+    float err = 0;
+    for (int i = 0; i < n; i++)
+    {
+        err += abs((int)a1[i].x - (int)a2[i].x);
+        err += abs((int)a1[i].y - (int)a2[i].y);
+        err += abs((int)a1[i].z - (int)a2[i].z);
+    }
+    err /= (n * 3);
+    return err;
+}
+
+char *concatStr(const char * s1, const char * s2)
+{
+    char * result = (char *)malloc(strlen(s1) + strlen(s2) + 1);
+    strcpy(result, s1);
+    strcat(result, s2);
+    return result;
+}
+
+void printDeviceInfo()
+{
+    cudaDeviceProp devProv;
+    CHECK(cudaGetDeviceProperties(&devProv, 0));
+    printf("**********GPU info**********\n");
+    printf("Name: %s\n", devProv.name);
+    printf("Compute capability: %d.%d\n", devProv.major, devProv.minor);
+    printf("Num SMs: %d\n", devProv.multiProcessorCount);
+    printf("Max num threads per SM: %d\n", devProv.maxThreadsPerMultiProcessor); 
+    printf("Max num warps per SM: %d\n", devProv.maxThreadsPerMultiProcessor / devProv.warpSize);
+    printf("GMEM: %lu bytes\n", devProv.totalGlobalMem);
+    printf("CMEM: %lu bytes\n", devProv.totalConstMem);
+    printf("L2 cache: %i bytes\n", devProv.l2CacheSize);
+    printf("SMEM / one SM: %lu bytes\n", devProv.sharedMemPerMultiprocessor);
+
+    printf("****************************\n\n");
+
+}
