@@ -165,3 +165,32 @@ void printDeviceInfo()
     printf("****************************\n\n");
 
 }
+
+uint8_t getClosest(uint8_t *pixels, int r, int c, int width, int height, int originalWidth)
+{
+    if (r < 0) {
+        r = 0;
+    } else if (r >= height) {
+        r = height - 1;
+    }
+
+    if (c < 0) {
+        c = 0;
+    } else if (c >= width) {
+        c = width - 1;
+    }
+
+    return pixels[r * originalWidth + c];
+}
+
+int computePixelPriority(uint8_t * grayPixels, int row, int col, int width, int height, int originalWidth) {
+    int x = 0, y = 0;
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            uint8_t closest = getClosest(grayPixels, row - 1 + i, col - 1 + j, width, height, originalWidth);
+            x += closest * xSobel[i][j];
+            y += closest * ySobel[i][j];
+        }
+    }
+    return abs(x) + abs(y);
+}
