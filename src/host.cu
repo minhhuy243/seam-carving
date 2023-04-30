@@ -1,5 +1,59 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <string>
+#include <cmath>
+#include <algorithm>
+
+using namespace std;
+
+#define CHECK(call)\
+{\
+    const cudaError_t error = call;\
+    if (error != cudaSuccess)\
+    {\
+        fprintf(stderr, "Error: %s:%d, ", __FILE__, __LINE__);\
+        fprintf(stderr, "code: %d, reason: %s\n", error,\
+                cudaGetErrorString(error));\
+        exit(EXIT_FAILURE);\
+    }\
+}
+
+struct GpuTimer
+{
+    cudaEvent_t start;
+    cudaEvent_t stop;
+
+    GpuTimer()
+    {
+        cudaEventCreate(&start);
+        cudaEventCreate(&stop);
+    }
+
+    ~GpuTimer()
+    {
+        cudaEventDestroy(start);
+        cudaEventDestroy(stop);
+    }
+
+    void Start()
+    {
+        cudaEventRecord(start, 0);                                                                 
+        cudaEventSynchronize(start);
+    }
+
+    void Stop()
+    {
+        cudaEventRecord(stop, 0);
+    }
+
+    float Elapsed()
+    {
+        float elapsed;
+        cudaEventSynchronize(stop);
+        cudaEventElapsedTime(&elapsed, start, stop);
+        return elapsed;
+    }
+};
 
 void readPnm(char * fileName, int &width, int &height, uchar3 * &pixels)
 {
@@ -59,3 +113,7 @@ void writePnm(uchar3 *pixels, int width, int height, int originalWidth, char *fi
     
     fclose(f);
 }
+
+int xSobel[3][3] = {{1,0,-1},{2,0,-2},{1,0,-1}};
+int ySobel[3][3] = {{1,2,1},{0,0,0},{-1,-2,-1}};
+
