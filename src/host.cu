@@ -216,3 +216,211 @@ void computeSeamScoreTable(int *priority, int *score, int width, int height, int
         }
     }
 }
+
+void seamCarvingByHostNaive(uchar3 *inPixels, int width, int height, int targetWidth, uchar3* outPixels) {
+    GpuTimer timer;
+    timer.Start();
+
+    memcpy(outPixels, inPixels, width * height * sizeof(uchar3));
+
+    const int originalWidth = width;
+
+    // allocate memory
+    int *priority = (int *)malloc(width * height * sizeof(int));
+    int *score = (int *)malloc(width * height * sizeof(int));
+    uint8_t *grayPixels= (uint8_t *)malloc(width * height * sizeof(uint8_t));
+    
+    // turn input image to grayscale
+    convertRgb2Gray(inPixels, width, height, grayPixels);
+
+    // compute pixel priority
+    for (int r = 0; r < height; ++r) {
+        for (int c = 0; c < width; ++c) {
+            priority[r * originalWidth + c] = computePixelPriority(grayPixels, r, c, width, height, width);
+        }
+    }
+
+    while (width > targetWidth) {
+        // compute min seam table
+        computeSeamScoreTable(priority, score, width, height, originalWidth);
+
+        // find min index of last row
+        int minCol = 0, r = height - 1;
+        for (int c = 1; c < width; ++c) {
+            if (score[r * originalWidth + c] < score[r * originalWidth + minCol])
+                minCol = c;
+        }
+
+        // trace and remove seam from last to first row
+        for (; r >= 0; --r) {
+            // remove seam pixel on row r
+            for (int i = minCol; i < width - 1; ++i) {
+                outPixels[r * originalWidth + i] = outPixels[r * originalWidth + i + 1];
+                grayPixels[r * originalWidth + i] = grayPixels[r * originalWidth + i + 1];
+                priority[r * originalWidth + i] = priority[r * originalWidth + i + 1];
+            }
+
+            // update priority
+            if (r < height - 1) {
+                for (int affectedCol = 0; affectedCol < width - 1; ++affectedCol) {
+                    priority[(r + 1) * originalWidth + affectedCol] = computePixelPriority(grayPixels, r + 1, affectedCol, width - 1, height, originalWidth);
+                }
+            }
+
+            // trace up
+            if (r > 0) {
+                int aboveIdx = (r - 1) * originalWidth + minCol;
+                int min = score[aboveIdx], minColCpy = minCol;
+                if (minColCpy > 0 && score[aboveIdx - 1] < min) {
+                    min = score[aboveIdx - 1];
+                    minCol = minColCpy - 1;
+                }
+                if (minColCpy < width - 1 && score[aboveIdx + 1] < min) {
+                    minCol = minColCpy + 1;
+                }
+            }
+        }
+
+        for (int affectedCol = 0; affectedCol < width - 1; ++affectedCol) {
+            priority[affectedCol] = computePixelPriority(grayPixels, 0, affectedCol, width - 1, height, originalWidth);
+        }
+
+        --width;
+    }
+    
+    free(grayPixels);
+    free(score);
+    free(priority);
+
+    timer.Stop();
+    float time = timer.Elapsed();
+    printf("Processing time (use host): %f ms\n\n", time);
+}
+
+void seamCarvingByHostOptimized(uchar3 *inPixels, int width, int height, int targetWidth, uchar3* outPixels) {
+    GpuTimer timer;
+    timer.Start();
+
+    memcpy(outPixels, inPixels, width * height * sizeof(uchar3));
+
+    const int originalWidth = width;
+
+    // allocate memory
+    int *priority = (int *)malloc(width * height * sizeof(int));
+    int *score = (int *)malloc(width * height * sizeof(int));
+    uint8_t *grayPixels= (uint8_t *)malloc(width * height * sizeof(uint8_t));
+    
+    // turn input image to grayscale
+    convertRgb2Gray(inPixels, width, height, grayPixels);
+
+    // compute pixel priority
+    for (int r = 0; r < height; ++r) {
+        for (int c = 0; c < width; ++c) {
+            priority[r * originalWidth + c] = computePixelPriority(grayPixels, r, c, width, height, width);
+        }
+    }
+
+    while (width > targetWidth) {
+        // compute min seam table
+        computeSeamScoreTable(priority, score, width, height, originalWidth);
+
+        // find min index of last row
+        int minCol = 0, r = height - 1, prevMinCol;
+        for (int c = 1; c < width; ++c) {
+            if (score[r * originalWidth + c] < score[r * originalWidth + minCol])
+                minCol = c;
+        }
+
+        // trace and remove seam from last to first row
+        for (; r >= 0; --r) {
+            // remove seam pixel on row r
+            for (int i = minCol; i < width - 1; ++i) {
+                outPixels[r * originalWidth + i] = outPixels[r * originalWidth + i + 1];
+                grayPixels[r * originalWidth + i] = grayPixels[r * originalWidth + i + 1];
+                priority[r * originalWidth + i] = priority[r * originalWidth + i + 1];
+            }
+
+            // update priority
+            if (r < height - 1) {
+                for (int affectedCol = max(0, prevMinCol - 2); affectedCol <= prevMinCol + 2 && affectedCol < width - 1; ++affectedCol) {
+                    priority[(r + 1) * originalWidth + affectedCol] = computePixelPriority(grayPixels, r + 1, affectedCol, width - 1, height, originalWidth);
+                }
+            }
+
+            // trace up
+            if (r > 0) {
+                prevMinCol = minCol;
+
+                int aboveIdx = (r - 1) * originalWidth + minCol;
+                int min = score[aboveIdx], minColCpy = minCol;
+                if (minColCpy > 0 && score[aboveIdx - 1] < min) {
+                    min = score[aboveIdx - 1];
+                    minCol = minColCpy - 1;
+                }
+                if (minColCpy < width - 1 && score[aboveIdx + 1] < min) {
+                    minCol = minColCpy + 1;
+                }
+            }
+        }
+
+        for (int affectedCol = max(0, minCol - 2); affectedCol <= minCol + 2 && affectedCol < width - 1; ++affectedCol) {
+            priority[affectedCol] = computePixelPriority(grayPixels, 0, affectedCol, width - 1, height, originalWidth);
+        }
+
+        --width;
+    }
+    
+    free(grayPixels);
+    free(score);
+    free(priority);
+
+    timer.Stop();
+    float time = timer.Elapsed();
+    printf("Processing time (use host): %f ms\n\n", time);
+}
+
+int main(int argc, char ** argv)
+{   
+    if (argc != 4 && argc != 6)
+    {
+        printf("The number of arguments is invalid\n");
+        return EXIT_FAILURE;
+    }
+
+    printDeviceInfo();
+
+    // Read input RGB image file
+    int width, height;
+    uchar3 *inPixels;
+    readPnm(argv[1], width, height, inPixels);
+    printf("Image size (width x height): %i x %i\n\n", width, height);
+
+    int numSeamRemoved = stoi(argv[3]);
+    if (numSeamRemoved <= 0 || numSeamRemoved >= width)
+        return EXIT_FAILURE; // invalid ratio
+    printf("Number of seam removed: %d\n\n", numSeamRemoved);
+
+    int targetWidth = width - numSeamRemoved;
+
+    // seam carving using host
+    uchar3 * correctOutPixels = (uchar3 *)malloc(width * height * sizeof(uchar3));
+    seamCarvingByHostNaive(inPixels, width, height, targetWidth, correctOutPixels);
+
+    // seam carving using device
+    uchar3 * outPixels= (uchar3 *)malloc(width * height * sizeof(uchar3));
+    seamCarvingByHostOptimized(inPixels, width, height, targetWidth, outPixels);
+
+    // Compute mean absolute error between host result and device result
+    float err = computeError(outPixels, correctOutPixels, width * height);
+    printf("Error between device result and host result: %f\n", err);
+
+    // Write results to files
+    char *outFileNameBase = strtok(argv[2], "."); // Get rid of extension
+    writePnm(correctOutPixels, targetWidth, height, width, concatStr(outFileNameBase, "_host_naive.pnm"));
+    writePnm(outPixels, targetWidth, height, width, concatStr(outFileNameBase, "_host_optimized.pnm"));
+
+    // Free memories
+    free(inPixels);
+    free(correctOutPixels);
+    free(outPixels);
+}
