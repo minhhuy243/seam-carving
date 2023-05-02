@@ -294,7 +294,7 @@ void seamCarvingByHostNaive(uchar3 *inPixels, int width, int height, int targetW
 
     timer.Stop();
     float time = timer.Elapsed();
-    printf("Processing time (use host): %f ms\n\n", time);
+    printf("Processing time (using host): %f ms\n\n", time);
 }
 
 void seamCarvingByHostOptimized(uchar3 *inPixels, int width, int height, int targetWidth, uchar3* outPixels) {
@@ -351,13 +351,13 @@ void seamCarvingByHostOptimized(uchar3 *inPixels, int width, int height, int tar
             if (r > 0) {
                 prevMinCol = minCol;
 
-                int aboveIdx = (r - 1) * originalWidth + minCol;
-                int min = score[aboveIdx], minColCpy = minCol;
-                if (minColCpy > 0 && score[aboveIdx - 1] < min) {
-                    min = score[aboveIdx - 1];
+                int aboveCol = (r - 1) * originalWidth + minCol;
+                int min = score[aboveCol], minColCpy = minCol;
+                if (minColCpy > 0 && score[aboveCol - 1] < min) {
+                    min = score[aboveCol - 1];
                     minCol = minColCpy - 1;
                 }
-                if (minColCpy < width - 1 && score[aboveIdx + 1] < min) {
+                if (minColCpy < width - 1 && score[aboveCol + 1] < min) {
                     minCol = minColCpy + 1;
                 }
             }
@@ -376,7 +376,7 @@ void seamCarvingByHostOptimized(uchar3 *inPixels, int width, int height, int tar
 
     timer.Stop();
     float time = timer.Elapsed();
-    printf("Processing time (use host has been optimized): %f ms\n\n", time);
+    printf("Processing time (using host has been optimized): %f ms\n\n", time);
 }
 
 int main(int argc, char ** argv)
@@ -403,26 +403,26 @@ int main(int argc, char ** argv)
     int targetWidth = width - numSeamRemoved;
 
     // seam carving using host
-    uchar3 * correctOutPixels = (uchar3 *)malloc(width * height * sizeof(uchar3));
-    seamCarvingByHostNaive(inPixels, width, height, targetWidth, correctOutPixels);
+    uchar3 * outPixels = (uchar3 *)malloc(width * height * sizeof(uchar3));
+    seamCarvingByHostNaive(inPixels, width, height, targetWidth, outPixels);
 
-    // seam carving using device
-    uchar3 * outPixels= (uchar3 *)malloc(width * height * sizeof(uchar3));
-    seamCarvingByHostOptimized(inPixels, width, height, targetWidth, outPixels);
+    // seam carving using host has been optimized
+    uchar3 * outPixelsOptimized = (uchar3 *)malloc(width * height * sizeof(uchar3));
+    seamCarvingByHostOptimized(inPixels, width, height, targetWidth, outPixelsOptimized);
 
     // Compute mean absolute error between host result and device result
-    float err = computeError(outPixels, correctOutPixels, width * height);
-    printf("Error between device result and host result: %f\n", err);
+    float err = computeError(outPixels, outPixelsOptimized, width * height);
+    printf("Error between: %f\n", err);
 
     // Write results to files
     char *outFileNameBase = strtok(argv[2], "."); // Get rid of extension
-    writePnm(correctOutPixels, targetWidth, height, width, concatStr(outFileNameBase, "_host_naive.pnm"));
-    writePnm(outPixels, targetWidth, height, width, concatStr(outFileNameBase, "_host_optimized.pnm"));
+    writePnm(outPixels, targetWidth, height, width, concatStr(outFileNameBase, "_host_naive.pnm"));
+    writePnm(outPixelsOptimized, targetWidth, height, width, concatStr(outFileNameBase, "_host_optimized.pnm"));
 
     // Free memories
     free(inPixels);
-    free(correctOutPixels);
     free(outPixels);
+    free(outPixelsOptimized);
 }
 
 /*
