@@ -269,13 +269,13 @@ void seamCarvingByHostNaive(uchar3 *inPixels, int width, int height, int targetW
 
             // trace up
             if (r > 0) {
-                int aboveIdx = (r - 1) * originalWidth + minCol;
-                int min = score[aboveIdx], minColCpy = minCol;
-                if (minColCpy > 0 && score[aboveIdx - 1] < min) {
-                    min = score[aboveIdx - 1];
+                int aboveCol = (r - 1) * originalWidth + minCol;
+                int min = score[aboveCol], minColCpy = minCol;
+                if (minColCpy > 0 && score[aboveCol - 1] < min) {
+                    min = score[aboveCol - 1];
                     minCol = minColCpy - 1;
                 }
-                if (minColCpy < width - 1 && score[aboveIdx + 1] < min) {
+                if (minColCpy < width - 1 && score[aboveCol + 1] < min) {
                     minCol = minColCpy + 1;
                 }
             }
@@ -376,7 +376,7 @@ void seamCarvingByHostOptimized(uchar3 *inPixels, int width, int height, int tar
 
     timer.Stop();
     float time = timer.Elapsed();
-    printf("Processing time (use host): %f ms\n\n", time);
+    printf("Processing time (use host has been optimized): %f ms\n\n", time);
 }
 
 int main(int argc, char ** argv)
@@ -424,3 +424,26 @@ int main(int argc, char ** argv)
     free(correctOutPixels);
     free(outPixels);
 }
+
+/*
+    - uchar3: kiểu dữ liệu dạng unsigned char 3 kênh màu RGB
+
+    1. Chuyển đổi ảnh RGB sang ảnh dạng GrayScale.
+    2. Tính toán độ ưu tiên cho từng pixel và lưu vào mảng 1 chiều priority[row * originalWidth + column].
+    3. Tạo vòng lặp while để loại bỏ các đường seam cho đến khi đạt được chiều rộng mong muốn.
+        3.1. Với mỗi vòng lặp while, ta sẽ tính bảng điểm của các Seam bằng hàm computeSeamScoreTable và lưu vào mảng score[row * originalWidth + column].
+        3.2. Vòng lặp for tiếp theo để tìm index của cột có điểm số thấp nhất Ở DÒNG CUỐI CÙNG từ mảng score
+        3.3. Tiếp tục truy ngược và xoá các đường seam sau khi có đc minCol, ta sẽ trace từ dòng cuối -> dòng đầu tiên.
+            + Với mỗi dòng, ta sẽ xoá pixel tại vị trí minCol bằng cách dịch các pixel còn lại của dòng đó sang bên trái 
+                (ghi đè giá trị pixel bên phải vào vị trí hiện tại). Sa
+            + Sau đó cập nhật lại độ ưu tiên của pixel của dòng r + 1, vì sau khi xoá pixel của dòng r đó thì giá trị độ ưu pixel bị ảnh hưởng,
+                if (r < height -1) để đảm bảo từ dòng cuối -> dòng thứ hai
+            + Tiếp tục truy ngược lên để tìm index của cột có điểm số thấp nhất ở dòng phía trên
+                r > 0 để ko xét dòng đầu tiên.
+                Ta sẽ minCol của dòng trên bằng cách so sánh giá trị của 3 vị trí kề với dòng trên
+        
+        3.4. for (int affectedCol = 0; affectedCol < width - 1; ++affectedCol) {
+            Tính lại độ ưu tiên pixel của dòng đầu tiên, do dòng if (r < height - 1) { ... chỉ tính tới priority[1]
+        3.5. Giảm độ rộng của ảnh đi 1 pixel
+
+*/
