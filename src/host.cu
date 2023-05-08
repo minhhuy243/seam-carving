@@ -416,7 +416,7 @@ int main(int argc, char ** argv)
 
     // Write results to files
     char *outFileNameBase = strtok(argv[2], "."); // Get rid of extension
-    writePnm(outPixels, targetWidth, height, width, concatStr(outFileNameBase, "_host_naive.pnm"));
+    writePnm(outPixels, targetWidth, height, width, concatStr(outFileNameBase, "_host.pnm"));
     writePnm(outPixelsOptimized, targetWidth, height, width, concatStr(outFileNameBase, "_host_optimized.pnm"));
 
     // Free memories
