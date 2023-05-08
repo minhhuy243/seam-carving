@@ -294,7 +294,7 @@ void seamCarvingByHostNaive(uchar3 *inPixels, int width, int height, int targetW
 
     timer.Stop();
     float time = timer.Elapsed();
-    printf("Processing time (using host): %f ms\n\n", time);
+    printf("Processing time (use host): %f ms\n\n", time);
 }
 
 void seamCarvingByHostOptimized(uchar3 *inPixels, int width, int height, int targetWidth, uchar3* outPixels) {
@@ -376,7 +376,7 @@ void seamCarvingByHostOptimized(uchar3 *inPixels, int width, int height, int tar
 
     timer.Stop();
     float time = timer.Elapsed();
-    printf("Processing time (using host has been optimized): %f ms\n\n", time);
+    printf("Processing time (use host has been optimized): %f ms\n\n", time);
 }
 
 int main(int argc, char ** argv)
